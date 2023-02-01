@@ -30,6 +30,7 @@ where
         cfg.service(
             web::resource("/{item_id}")
                 .route(web::get().to(Self::get_model))
+                .route(web::delete().to(Self::delete_model))
         );
     }
 
@@ -61,6 +62,21 @@ where
                 }))
             },
             Err(e) => Err(OrmError::InternalError),
+        }
+    }
+
+    pub async fn delete_model(
+        conn: web::Data<DatabaseConnection>,
+        item_id: web::Path<<<<Model as ModelTrait>::Entity as EntityTrait>::PrimaryKey as PrimaryKeyTrait>::ValueType>,
+    ) -> Result<HttpResponse, Error> {
+        
+        let item_id_val = item_id.into_inner();
+        match <Model as ModelTrait>::Entity::delete_by_id(item_id_val).exec(conn.get_ref()).await {
+            Err(_) => Err(error::ErrorNotFound("Not found")),
+            Ok(res) => match res.rows_affected {
+                0 => return Err(error::ErrorNotFound("Not found")),
+                _ => Ok(HttpResponse::Ok().body(""))
+            }
         }
     }
 }
