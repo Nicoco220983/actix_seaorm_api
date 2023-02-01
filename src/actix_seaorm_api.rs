@@ -4,7 +4,6 @@ use serde::{Serialize, Deserialize};
 use actix_web::{get, post, web, error, App, HttpResponse, HttpServer, HttpRequest, Responder, Error};
 use sea_orm::{Database, DatabaseConnection, DbErr, EntityTrait, ModelTrait, PrimaryKeyTrait, ActiveModelTrait, ActiveModelBehavior, IntoActiveModel, Set, Iterable};
 use async_trait::async_trait;
-use derive_more::{Display, Error};
 use sea_orm::PrimaryKeyToColumn;
 
 
@@ -51,7 +50,7 @@ where
     async fn create_model(
         conn: web::Data<DatabaseConnection>,
         form_data: web::Form<Model>,
-    ) -> Result<web::Json<ResId<Model>>, OrmError> {
+    ) -> Result<web::Json<ResId<Model>>, Error> {
 
         let mut new_item = form_data.into_inner().into_active_model();
         unset_primary_key(&mut new_item);
@@ -61,7 +60,7 @@ where
                     id: insert_result.last_insert_id
                 }))
             },
-            Err(e) => Err(OrmError::InternalError),
+            Err(e) => Err(error::ErrorInternalServerError("Internal Error")),
         }
     }
 
@@ -72,9 +71,9 @@ where
         
         let item_id_val = item_id.into_inner();
         match <Model as ModelTrait>::Entity::delete_by_id(item_id_val).exec(conn.get_ref()).await {
-            Err(_) => Err(error::ErrorNotFound("Not found")),
+            Err(_) => Err(error::ErrorNotFound("Not Found")),
             Ok(res) => match res.rows_affected {
-                0 => return Err(error::ErrorNotFound("Not found")),
+                0 => return Err(error::ErrorNotFound("Not Found")),
                 _ => Ok(HttpResponse::Ok().body(""))
             }
         }
@@ -89,15 +88,6 @@ where
 {
     pub id: <<<Model as ModelTrait>::Entity as EntityTrait>::PrimaryKey as PrimaryKeyTrait>::ValueType,
 }
-
-#[derive(Debug, Display, Error)]
-enum OrmError {
-    #[display(fmt = "internal error")]
-    InternalError,
-}
-
-impl error::ResponseError for OrmError {}
-
 
 fn unset_primary_key<ActiveModel: ActiveModelTrait>(model: &mut ActiveModel) {
     let mut cols = <<ActiveModel as ActiveModelTrait>::Entity as EntityTrait>::PrimaryKey::iter();

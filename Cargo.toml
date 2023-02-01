@@ -10,7 +10,6 @@ members = [".", "migration"]
 actix-web = "4.2.1"
 serde = "1.0.152"
 async-trait = "0.1.62"
-derive_more = "0.99.17"
 
 [dependencies.sea-orm]
 version = "0.10.7" # sea-orm version
