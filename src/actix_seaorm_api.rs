@@ -37,12 +37,10 @@ where
     ) -> Result<web::Json<<<Model as ModelTrait>::Entity as EntityTrait>::Model>, Error> {
     
         let item_id_val = item_id.into_inner();
-        let item: <<Model as ModelTrait>::Entity as EntityTrait>::Model = <Model as ModelTrait>::Entity::find_by_id(item_id_val).one(conn.get_ref())
-            .await
-            .expect("could not find item")
-            .unwrap_or_else(|| panic!("could not find item"));
-        
-        Ok(web::Json(item))
+        match <Model as ModelTrait>::Entity::find_by_id(item_id_val).one(conn.get_ref()).await {
+            Ok(Some(item)) => Ok(web::Json(item)),
+            _ => Err(error::ErrorNotFound("Not Found"))
+        }
     }
 
     async fn create_model(
