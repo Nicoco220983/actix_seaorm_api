@@ -1,9 +1,7 @@
-use std::env;
 use std::marker::PhantomData;
 use serde::{Serialize, Deserialize};
-use actix_web::{get, post, web, error, App, HttpResponse, HttpServer, HttpRequest, Responder, Error};
-use sea_orm::{Database, DatabaseConnection, DbErr, EntityTrait, ModelTrait, PrimaryKeyTrait, ActiveModelTrait, ActiveModelBehavior, IntoActiveModel, Set, Iterable};
-use async_trait::async_trait;
+use actix_web::{web, error, HttpResponse, Error};
+use sea_orm::{DatabaseConnection, EntityTrait, ModelTrait, PrimaryKeyTrait, ActiveModelTrait, ActiveModelBehavior, IntoActiveModel, Iterable};
 use sea_orm::PrimaryKeyToColumn;
 
 
@@ -60,7 +58,7 @@ where
                     id: insert_result.last_insert_id
                 }))
             },
-            Err(e) => Err(error::ErrorInternalServerError("Internal Error")),
+            Err(_) => Err(error::ErrorInternalServerError("Internal Error")),
         }
     }
 
