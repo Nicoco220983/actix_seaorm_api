@@ -1,92 +1,91 @@
-use std::marker::PhantomData;
 use serde::{Serialize, Deserialize};
-use actix_web::{web, error, HttpResponse, Error};
-use sea_orm::{DatabaseConnection, EntityTrait, ModelTrait, PrimaryKeyTrait, ActiveModelTrait, ActiveModelBehavior, IntoActiveModel, Iterable};
-use sea_orm::PrimaryKeyToColumn;
+use actix_web as web;
+use sea_orm as orm;
+use sea_orm::{EntityTrait, Iterable, PrimaryKeyToColumn};
 
 
 pub struct ModelApi<Model, ActiveModel>
 {
-    phantom1: PhantomData<Model>,
-    phantom2: PhantomData<ActiveModel>,
+    phantom1: std::marker::PhantomData<Model>,
+    phantom2: std::marker::PhantomData<ActiveModel>,
 }
 
-impl<Model: ModelTrait + 'static, ActiveModel: ActiveModelTrait<Entity = <Model as ModelTrait>::Entity> + ActiveModelBehavior + std::marker::Send + 'static> ModelApi<Model, ActiveModel>
+impl<Model: orm::ModelTrait + 'static, ActiveModel: orm::ActiveModelTrait<Entity = <Model as orm::ModelTrait>::Entity> + orm::ActiveModelBehavior + std::marker::Send + 'static> ModelApi<Model, ActiveModel>
 where
     Model : Serialize + for<'a> Deserialize<'a>,
-    <<Model as ModelTrait>::Entity as EntityTrait>::Model : Serialize + for<'a> Deserialize<'a>,
-    <<<Model as ModelTrait>::Entity as EntityTrait>::PrimaryKey as PrimaryKeyTrait>::ValueType : Serialize + for<'a> Deserialize<'a>,
-    Model : IntoActiveModel<ActiveModel>,
+    <<Model as orm::ModelTrait>::Entity as orm::EntityTrait>::Model : Serialize + for<'a> Deserialize<'a>,
+    <<<Model as orm::ModelTrait>::Entity as orm::EntityTrait>::PrimaryKey as orm::PrimaryKeyTrait>::ValueType : Serialize + for<'a> Deserialize<'a>,
+    Model : orm::IntoActiveModel<ActiveModel>,
 {
 
-    pub fn services(cfg: &mut web::ServiceConfig) {
+    pub fn services(cfg: &mut web::web::ServiceConfig) {
         cfg.service(
-            web::resource("/")
-                .route(web::post().to(Self::create_model))
+            web::web::resource("/")
+                .route(web::web::post().to(Self::create_model))
         );
         cfg.service(
-            web::resource("/{item_id}")
-                .route(web::get().to(Self::get_model))
-                .route(web::delete().to(Self::delete_model))
+            web::web::resource("/{item_id}")
+                .route(web::web::get().to(Self::get_model))
+                .route(web::web::delete().to(Self::delete_model))
         );
     }
 
     pub async fn get_model(
-        conn: web::Data<DatabaseConnection>,
-        item_id: web::Path<<<<Model as ModelTrait>::Entity as EntityTrait>::PrimaryKey as PrimaryKeyTrait>::ValueType>,
-    ) -> Result<web::Json<<<Model as ModelTrait>::Entity as EntityTrait>::Model>, Error> {
+        conn: web::web::Data<orm::DatabaseConnection>,
+        item_id: web::web::Path<<<<Model as orm::ModelTrait>::Entity as orm::EntityTrait>::PrimaryKey as orm::PrimaryKeyTrait>::ValueType>,
+    ) -> Result<web::web::Json<<<Model as orm::ModelTrait>::Entity as orm::EntityTrait>::Model>, web::Error> {
     
         let item_id_val = item_id.into_inner();
-        match <Model as ModelTrait>::Entity::find_by_id(item_id_val).one(conn.get_ref()).await {
-            Ok(Some(item)) => Ok(web::Json(item)),
-            _ => Err(error::ErrorNotFound("Not Found"))
+        match <Model as orm::ModelTrait>::Entity::find_by_id(item_id_val).one(conn.get_ref()).await {
+            Ok(Some(item)) => Ok(web::web::Json(item)),
+            _ => Err(web::error::ErrorNotFound("Not Found"))
         }
     }
 
     async fn create_model(
-        conn: web::Data<DatabaseConnection>,
-        form_data: web::Form<Model>,
-    ) -> Result<web::Json<ResId<Model>>, Error> {
+        conn: web::web::Data<orm::DatabaseConnection>,
+        form_data: web::web::Form<Model>,
+    ) -> Result<web::web::Json<ResId<Model>>, web::Error> {
 
         let mut new_item = form_data.into_inner().into_active_model();
         unset_primary_key(&mut new_item);
-        match <ActiveModel as ActiveModelTrait>::Entity::insert(new_item).exec(conn.get_ref()).await {
+        match <ActiveModel as orm::ActiveModelTrait>::Entity::insert(new_item).exec(conn.get_ref()).await {
             Ok(insert_result) => {
-                Ok(web::Json(ResId::<Model>{
+                Ok(web::web::Json(ResId::<Model>{
                     id: insert_result.last_insert_id
                 }))
             },
-            Err(_) => Err(error::ErrorInternalServerError("Internal Error")),
+            Err(_) => Err(web::error::ErrorInternalServerError("Internal Error")),
         }
     }
 
     pub async fn delete_model(
-        conn: web::Data<DatabaseConnection>,
-        item_id: web::Path<<<<Model as ModelTrait>::Entity as EntityTrait>::PrimaryKey as PrimaryKeyTrait>::ValueType>,
-    ) -> Result<HttpResponse, Error> {
+        conn: web::web::Data<orm::DatabaseConnection>,
+        item_id: web::web::Path<<<<Model as orm::ModelTrait>::Entity as orm::EntityTrait>::PrimaryKey as orm::PrimaryKeyTrait>::ValueType>,
+    ) -> Result<web::HttpResponse, web::Error> {
         
         let item_id_val = item_id.into_inner();
-        match <Model as ModelTrait>::Entity::delete_by_id(item_id_val).exec(conn.get_ref()).await {
-            Err(_) => Err(error::ErrorNotFound("Not Found")),
+        match <Model as orm::ModelTrait>::Entity::delete_by_id(item_id_val).exec(conn.get_ref()).await {
+            Err(_) => Err(web::error::ErrorNotFound("Not Found")),
             Ok(res) => match res.rows_affected {
-                0 => return Err(error::ErrorNotFound("Not Found")),
-                _ => Ok(HttpResponse::Ok().body(""))
+                0 => return Err(web::error::ErrorNotFound("Not Found")),
+                _ => Ok(web::HttpResponse::Ok().body(""))
             }
         }
     }
 }
 
 #[derive(Serialize, Deserialize)]
-struct ResId<Model: ModelTrait>
+struct ResId<Model: orm::ModelTrait>
 where
-    <<<Model as ModelTrait>::Entity as EntityTrait>::PrimaryKey as PrimaryKeyTrait>::ValueType : Serialize,
-    <<<Model as ModelTrait>::Entity as EntityTrait>::PrimaryKey as PrimaryKeyTrait>::ValueType : for<'a> Deserialize<'a>,
+    <<<Model as orm::ModelTrait>::Entity as orm::EntityTrait>::PrimaryKey as orm::PrimaryKeyTrait>::ValueType : Serialize,
+    <<<Model as orm::ModelTrait>::Entity as orm::EntityTrait>::PrimaryKey as orm::PrimaryKeyTrait>::ValueType : for<'a> Deserialize<'a>,
 {
-    pub id: <<<Model as ModelTrait>::Entity as EntityTrait>::PrimaryKey as PrimaryKeyTrait>::ValueType,
+    pub id: <<<Model as orm::ModelTrait>::Entity as orm::EntityTrait>::PrimaryKey as orm::PrimaryKeyTrait>::ValueType,
 }
 
-fn unset_primary_key<ActiveModel: ActiveModelTrait>(model: &mut ActiveModel) {
-    let mut cols = <<ActiveModel as ActiveModelTrait>::Entity as EntityTrait>::PrimaryKey::iter();
+fn unset_primary_key<ActiveModel: orm::ActiveModelTrait>(model: &mut ActiveModel) {
+    let mut cols = <<ActiveModel as orm::ActiveModelTrait>::Entity as orm::EntityTrait>::PrimaryKey::iter();
     while let Some(col) = cols.next() {
         model.not_set(col.into_column());
     }

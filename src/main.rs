@@ -1,13 +1,13 @@
 use std::env;
-use actix_web::{web, App, HttpServer};
-use sea_orm::{Database};
+use actix_web as web;
+use sea_orm as orm;
 
 mod posts;
 mod actix_seaorm_api;
 
 // app
 
-#[actix_web::main]
+#[web::main]
 async fn main() -> std::io::Result<()> {
 
     let db_url = match env::var("DATABASE_URL") {
@@ -15,13 +15,13 @@ async fn main() -> std::io::Result<()> {
         Err(_) => panic!("DATABASE_URL is not set !")
     };
 
-    let conn = Database::connect(&db_url).await.unwrap();
+    let conn = orm::Database::connect(&db_url).await.unwrap();
     
     println!("Starting server at: http://localhost:8080");
-    HttpServer::new(move || {
-        App::new()
-            .app_data(web::Data::new(conn.clone()))
-            .service(web::scope("/posts").configure(
+    web::HttpServer::new(move || {
+        web::App::new()
+            .app_data(web::web::Data::new(conn.clone()))
+            .service(web::web::scope("/posts").configure(
                 actix_seaorm_api::ModelApi::<posts::Model, posts::ActiveModel>::services)
             )
     })
